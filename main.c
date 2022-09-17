@@ -1,7 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <string.h>
 #include <stdbool.h>
+#include <limits.h>
+#include <errno.h>
+#include <ctype.h>
 
 #ifdef _WIN32
 #define PAUSE "pause"
@@ -11,7 +15,45 @@
 #define CLEAR "clear"
 #endif
 
+#define CARD_MAX
+
+enum SUITS { HEART, SPADE, DIAMOND, CLUB };
+enum TYPES { TWO = 2, THREE, FOUR, FIVE, SIX, SEVEN, EIGHT, NINE, TEN, JACK, QUEEN, KING, ACE };
+
+typedef struct card {
+  char suit;
+  char type;
+  struct card *next;
+  struct card *prev;
+}
+card;
+
+typedef struct player {
+  char *name;
+  card *deck;
+  int amount;
+}
+player;
+
+const char *ordinal[] = {
+  "first",
+  "second",
+  "third",
+  "fourth",
+  "fifth",
+  "sixth",
+  "seventh",
+  "eighth"
+};
+
+void title(void);
+void printDashboard(player *, int);
+
 char *input(const char *);
+int toint(const char *);
+char *strstrip(char *);
+
+int playersLength;
 
 static char **allocatedStrings = NULL;
 static size_t allocatedStringsLength = 0;
@@ -20,7 +62,43 @@ static void teardownAllocations(void);
 int main(void) {
   atexit(teardownAllocations);
 
+  while (true) {
+    title();
+
+    do {
+      title();
+      playersLength = toint(input("How many player? [2-8] "));
+    }
+    while(playersLength < 2 || playersLength > 8);
+
+    player players[playersLength];
+    for (int c = 0; c < playersLength; c++) {
+      do {
+        title();
+        printf("What's the %s player name? ", ordinal[c]);
+        players[c].name = strstrip(input(""));
+      }
+      while (!*players[c].name);
+      players[c].amount = 4;
+    }
+
+    title();
+    printDashboard(players, 0);
+
+    break;
+  }
+
   return 0;
+}
+
+void title(void) {
+  system(CLEAR);
+  puts("~ ~ ~ CARD GAME ~ ~ ~\n\n");
+}
+
+void printDashboard(player *players, int current) {
+  for (int c = 0; c < playersLength; c++)
+    printf("%c [%d] %-20s\n", current == c ? '*' : ' ', players[c].amount, players[c].name);
 }
 
 // simplified libcs50 get_string: https://github.com/cs50/libcs50
@@ -90,3 +168,33 @@ static void teardownAllocations(void) {
   }
 }
 
+int toint(const char *string) {
+  if (string != NULL && *string && !isspace((unsigned char) *string)) {
+    errno = 0;
+    char *endptr;
+    long num = strtol(string, &endptr, 10);
+    if (errno == 0 && !(*endptr) && num >= INT_MIN && num < INT_MAX)
+      return num;
+  }
+
+  return INT_MAX;
+}
+
+char *strstrip(char *string) {
+  if (string == NULL)
+    return NULL;
+
+  size_t size = strlen(string);
+  if (!size)
+    return string;
+
+  char *end = string + size - 1;
+  while (end >= string && isspace((unsigned char) *end))
+    end--;
+  *(end + 1) = '\0';
+
+  while (*string && isspace((unsigned char) *string))
+    string++;
+
+  return string;
+}
