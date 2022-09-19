@@ -15,14 +15,17 @@
 #define CLEAR "clear"
 #endif
 
-#define CARD_MAX
+#define CARD_START 4
+#define SUIT_MAX 4
+#define TYPE_MAX 13
+#define CARD_MAX SUIT_MAX * TYPE_MAX
 
 enum SUITS { HEART, SPADE, DIAMOND, CLUB };
 enum TYPES { TWO = 2, THREE, FOUR, FIVE, SIX, SEVEN, EIGHT, NINE, TEN, JACK, QUEEN, KING, ACE };
 
 typedef struct card {
-  char suit;
-  char type;
+  int suit;
+  int type;
   struct card *next;
   struct card *prev;
 }
@@ -31,9 +34,15 @@ card;
 typedef struct player {
   char *name;
   card *deck;
-  int amount;
+  int lenght;
 }
 player;
+
+typedef struct stack {
+  card cards[CARD_MAX];
+  int lenght;
+}
+stack;
 
 const char *ordinal[] = {
   "first",
@@ -46,14 +55,44 @@ const char *ordinal[] = {
   "eighth"
 };
 
+const char *typeName[] = {
+  "",
+  "",
+  "2",
+  "3",
+  "4",
+  "5",
+  "6",
+  "7",
+  "8",
+  "9",
+  "10",
+  "jack",
+  "queen",
+  "king",
+  "ace"
+};
+
+const char *suitName[] = {
+  "hearts",
+  "spades",
+  "diamonds",
+  "clubs"
+};
+
 void title(void);
 void printDashboard(player *, int);
+card cardConstructor(enum SUITS, enum TYPES);
+void fillCardStack(void);
+void shuffleCardStack(void);
+bool buyCard(player *);
 
 char *input(const char *);
 int toint(const char *);
 char *strstrip(char *);
 
 int playersLength;
+stack cardStack = {0};
 
 static char **allocatedStrings = NULL;
 static size_t allocatedStringsLength = 0;
@@ -71,6 +110,9 @@ int main(void) {
     }
     while(playersLength < 2 || playersLength > 8);
 
+    fillCardStack();
+    shuffleCardStack();
+
     player players[playersLength];
     for (int c = 0; c < playersLength; c++) {
       do {
@@ -79,11 +121,15 @@ int main(void) {
         players[c].name = strstrip(input(""));
       }
       while (!*players[c].name);
-      players[c].amount = 4;
+      players[c].lenght = 0;
+      for (int k = 0; k < CARD_START; k++)
+        buyCard(&players[c]);
     }
 
     title();
-    printDashboard(players, 0);
+
+    for (int c = 0; c < CARD_MAX; c++)
+      printf("%s of %s\n", typeName[cardStack.cards[c].type], suitName[cardStack.cards[c].suit]);
 
     break;
   }
@@ -98,7 +144,54 @@ void title(void) {
 
 void printDashboard(player *players, int current) {
   for (int c = 0; c < playersLength; c++)
-    printf("%c [%d] %-20s\n", current == c ? '*' : ' ', players[c].amount, players[c].name);
+    printf("%c [%d] %-20s\n", current == c ? '*' : ' ', players[c].lenght, players[c].name);
+}
+
+card cardConstructor(enum SUITS suit, enum TYPES type) {
+  card newCard;
+  newCard.suit = suit;
+  newCard.type = type;
+  return newCard;
+}
+
+void fillCardStack(void) {
+  for (int suit = 0, i = 0; suit < SUIT_MAX; suit++)
+    for (int type = 2; type < TYPE_MAX + 2; type++, i++)
+      cardStack.cards[i] = cardConstructor(suit, type);
+
+  cardStack.lenght = CARD_MAX;
+}
+
+void shuffleCardStack(void) {
+  for (int i = 0; i < CARD_MAX; i++) {
+    int j = i + rand() / (RAND_MAX / (CARD_MAX - i) + 1);
+    card dummy = cardStack.cards[j];
+    cardStack.cards[j] = cardStack.cards[i];
+    cardStack.cards[i] = dummy;
+  }
+}
+
+bool buyCard(player *current) {
+  card *newCard = (card *) malloc(sizeof(card));
+  if (cardStack.lenght == 0)
+    return false;
+
+  cardStack.lenght--;
+  newCard = &cardStack.cards[cardStack.lenght];
+  if (current->deck == NULL) {
+    current->deck = newCard;
+    newCard->next = newCard;
+    newCard->prev = newCard;
+  }
+  else {
+    newCard->next = current->deck;
+    newCard->prev = current->deck->prev;
+    current->deck->prev = newCard;
+    newCard->prev->next = newCard;
+  }
+  current->lenght++;
+
+  return true;
 }
 
 // simplified libcs50 get_string: https://github.com/cs50/libcs50
