@@ -142,19 +142,25 @@ int main(void) {
 
     int currentPlayer = chooseRandom(playersLength);
     char formatedLog[STR_MAX];
-    sprintf(formatedLog, "%s starts first!", players[currentPlayer].name);
+    int playerCard;
+    sprintf(formatedLog, "'%s' starts first!", players[currentPlayer].name);
     addLog(formatedLog);
 
     while (true) {
       for (int c = 0; c < playersLength; c++) {
-        title();
-        printLogs();
-        printDashboard(players, currentPlayer, playersLength);
-        printPlayerDeck(&players[currentPlayer]);
+        do {
+          title();
+          printLogs();
+          printDashboard(players, currentPlayer, playersLength);
+          printPlayerDeck(&players[currentPlayer]);
 
-        system(PAUSE);
+          playerCard = toint(input("Which card? "));
+        }
+        while(playerCard < 1 || playerCard > players[currentPlayer].lenght);
+
         currentPlayer = currentPlayer + 1 < playersLength ? currentPlayer + 1 : 0;
       }
+
       clearLogs();
       return 0;
     }
