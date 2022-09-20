@@ -81,18 +81,16 @@ const char *suitName[] = {
 };
 
 void title(void);
-void printDashboard(player *, int);
+void printDashboard(player *, int, int);
+int chooseRandom(int);
 card cardConstructor(enum SUITS, enum TYPES);
-void fillCardStack(void);
-void shuffleCardStack(void);
-bool buyCard(player *);
+void fillCardStack(stack *);
+void shuffleCardStack(stack *);
+bool buyCard(player *, stack *);
 
 char *input(const char *);
 int toint(const char *);
 char *strstrip(char *);
-
-int playersLength;
-stack cardStack = {0};
 
 static char **allocatedStrings = NULL;
 static size_t allocatedStringsLength = 0;
@@ -100,6 +98,10 @@ static void teardownAllocations(void);
 
 int main(void) {
   atexit(teardownAllocations);
+
+  int playersLength = 0;
+  stack cardStack = {0};
+  fillCardStack(&cardStack);
 
   while (true) {
     title();
@@ -110,8 +112,7 @@ int main(void) {
     }
     while(playersLength < 2 || playersLength > 8);
 
-    fillCardStack();
-    shuffleCardStack();
+    shuffleCardStack(&cardStack);
 
     player players[playersLength];
     for (int c = 0; c < playersLength; c++) {
@@ -122,16 +123,25 @@ int main(void) {
       }
       while (!*players[c].name);
       players[c].lenght = 0;
+      players[c].deck = NULL;
+
       for (int k = 0; k < CARD_START; k++)
-        buyCard(&players[c]);
+        buyCard(&players[c], &cardStack);
     }
 
-    title();
+    while (true) {
+      int currentPlayer = chooseRandom(playersLength);
 
-    for (int c = 0; c < CARD_MAX; c++)
-      printf("%s of %s\n", typeName[cardStack.cards[c].type], suitName[cardStack.cards[c].suit]);
+      for (int c = 0; c < playersLength; c++) {
+        title();
+        printDashboard(players, currentPlayer, playersLength);
 
-    break;
+        currentPlayer = currentPlayer + 1 < playersLength ? currentPlayer + 1 : 0;
+        system(PAUSE);
+      }
+
+      return 0;
+    }
   }
 
   return 0;
@@ -139,12 +149,27 @@ int main(void) {
 
 void title(void) {
   system(CLEAR);
-  puts("~ ~ ~ CARD GAME ~ ~ ~\n\n");
+  printf("\n%s\n%s\n%s\n%s\n%s\n\n",
+    "                   |                        ",
+    ",---.,---.,---.,---|    ,---.,---.,-.-.,---.",
+    "|    ,---||    |   |    |   |,---|| | ||---'",
+    "`---'`---^`    `---'    `---|`---^` ' '`---'",
+    "                        `---'               "
+  );
 }
 
-void printDashboard(player *players, int current) {
-  for (int c = 0; c < playersLength; c++)
-    printf("%c [%d] %-20s\n", current == c ? '*' : ' ', players[c].lenght, players[c].name);
+void printDashboard(player *players, int current, int lenght) {
+  for (int c = 0; c < lenght; c++) 
+    printf("[%c][%02d] %-15s%c",
+      current == c ? '*' : ' ',
+      players[c].lenght,
+      players[c].name,
+      c % 2 ? '\n' : ' '
+    );
+}
+
+int chooseRandom(int lenght) {
+  return rand() % lenght;
 }
 
 card cardConstructor(enum SUITS suit, enum TYPES type) {
@@ -154,30 +179,35 @@ card cardConstructor(enum SUITS suit, enum TYPES type) {
   return newCard;
 }
 
-void fillCardStack(void) {
+void fillCardStack(stack *cardStack) {
   for (int suit = 0, i = 0; suit < SUIT_MAX; suit++)
     for (int type = 2; type < TYPE_MAX + 2; type++, i++)
-      cardStack.cards[i] = cardConstructor(suit, type);
+      cardStack->cards[i] = cardConstructor(suit, type);
 
-  cardStack.lenght = CARD_MAX;
+  cardStack->lenght = CARD_MAX;
 }
 
-void shuffleCardStack(void) {
+void shuffleCardStack(stack *cardStack) {
   for (int i = 0; i < CARD_MAX; i++) {
     int j = i + rand() / (RAND_MAX / (CARD_MAX - i) + 1);
-    card dummy = cardStack.cards[j];
-    cardStack.cards[j] = cardStack.cards[i];
-    cardStack.cards[i] = dummy;
+    card dummy = cardStack->cards[j];
+    cardStack->cards[j] = cardStack->cards[i];
+    cardStack->cards[i] = dummy;
   }
 }
 
-bool buyCard(player *current) {
-  card *newCard = (card *) malloc(sizeof(card));
-  if (cardStack.lenght == 0)
+bool buyCard(player *current, stack* cardStack) {
+  if (cardStack->lenght == 0)
     return false;
 
-  cardStack.lenght--;
-  newCard = &cardStack.cards[cardStack.lenght];
+  card *newCard = (card *) malloc(sizeof(card));
+  if (newCard == NULL)
+    return false;
+
+  cardStack->lenght--;
+  newCard->suit = cardStack->cards[cardStack->lenght].suit;
+  newCard->type = cardStack->cards[cardStack->lenght].type;
+
   if (current->deck == NULL) {
     current->deck = newCard;
     newCard->next = newCard;
