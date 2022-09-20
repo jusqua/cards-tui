@@ -19,7 +19,8 @@
 #define SUIT_MAX 4
 #define TYPE_MAX 13
 #define CARD_MAX SUIT_MAX * TYPE_MAX
-#define STR_MAX 50
+#define STR_MAX 45
+#define SEPARATOR '-'
 
 enum SUITS { HEART, SPADE, DIAMOND, CLUB };
 enum TYPES { TWO = 2, THREE, FOUR, FIVE, SIX, SEVEN, EIGHT, NINE, TEN, JACK, QUEEN, KING, ACE };
@@ -82,9 +83,11 @@ const char *suitName[] = {
 };
 
 void title(void);
+void centeredText(char *);
 void printDashboard(player *, int, int);
 int chooseRandom(int);
 card cardConstructor(enum SUITS, enum TYPES);
+void printPlayerDeck(player *);
 void fillCardStack(stack *);
 void shuffleCardStack(stack *);
 bool buyCard(player *, stack *);
@@ -147,8 +150,10 @@ int main(void) {
         title();
         printLogs();
         printDashboard(players, currentPlayer, playersLength);
-        currentPlayer = currentPlayer + 1 < playersLength ? currentPlayer + 1 : 0;
+        printPlayerDeck(&players[currentPlayer]);
+
         system(PAUSE);
+        currentPlayer = currentPlayer + 1 < playersLength ? currentPlayer + 1 : 0;
       }
       clearLogs();
       return 0;
@@ -169,7 +174,26 @@ void title(void) {
   );
 }
 
+void centeredText(char *text) {
+  int length = strlen(text);
+  int span = (STR_MAX - length) / 2;
+
+  for (int c = 0; c < span; c++)
+    printf("%c", SEPARATOR);
+
+  for (int c = 0; text[c] != 0; c++)
+    printf("%c", toupper(text[c]));
+
+  if (length % 2 == 0)
+    printf("%c", SEPARATOR);
+
+  for (int c = 0; c < span; c++)
+    printf("%c", SEPARATOR);
+  puts("");
+}
+
 void printDashboard(player *players, int current, int lenght) {
+  centeredText("players");
   for (int c = 0; c < lenght; c++) 
     printf("[%c][%02d] %-15s%c",
       current == c ? '*' : ' ',
@@ -177,6 +201,10 @@ void printDashboard(player *players, int current, int lenght) {
       players[c].name,
       c % 2 ? '\n' : ' '
     );
+
+  if (lenght % 2)
+    puts("");
+  puts("");
 }
 
 void addLog(char *text) {
@@ -197,11 +225,12 @@ void addLog(char *text) {
 }
 
 void printLogs(void) {
+  centeredText("logs");
   if (logs == NULL)
     return;
 
   for (size_t c = 0; c < logsLength; c++)
-    printf("%s\n", logs[c]);
+    printf("* %-43s\n", logs[c]);
   puts("");
 }
 
@@ -226,6 +255,23 @@ card cardConstructor(enum SUITS suit, enum TYPES type) {
   newCard.suit = suit;
   newCard.type = type;
   return newCard;
+}
+
+void printPlayerDeck(player *current) {
+  centeredText("deck");
+
+  card *tmp = current->deck;
+  for (int c = 0; c < current->lenght; c++, tmp = tmp->next)
+    printf("[%02d] %5s of %-8s%c",
+      c + 1,
+      typeName[tmp->type],
+      suitName[tmp->suit],
+      c % 2 ? '\n' : ' '
+    );
+
+  if (current->lenght % 2)
+    puts("");
+  puts("");
 }
 
 void fillCardStack(stack *cardStack) {
