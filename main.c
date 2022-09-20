@@ -19,6 +19,7 @@
 #define SUIT_MAX 4
 #define TYPE_MAX 13
 #define CARD_MAX SUIT_MAX * TYPE_MAX
+#define STR_MAX 50
 
 enum SUITS { HEART, SPADE, DIAMOND, CLUB };
 enum TYPES { TWO = 2, THREE, FOUR, FIVE, SIX, SEVEN, EIGHT, NINE, TEN, JACK, QUEEN, KING, ACE };
@@ -88,6 +89,10 @@ void fillCardStack(stack *);
 void shuffleCardStack(stack *);
 bool buyCard(player *, stack *);
 
+void addLog(char *);
+void printLogs(void);
+void clearLogs(void);
+
 char *input(const char *);
 int toint(const char *);
 char *strstrip(char *);
@@ -95,6 +100,9 @@ char *strstrip(char *);
 static char **allocatedStrings = NULL;
 static size_t allocatedStringsLength = 0;
 static void teardownAllocations(void);
+
+char **logs = NULL;
+size_t logsLength = 0; 
 
 int main(void) {
   atexit(teardownAllocations);
@@ -129,17 +137,20 @@ int main(void) {
         buyCard(&players[c], &cardStack);
     }
 
-    while (true) {
-      int currentPlayer = chooseRandom(playersLength);
+    int currentPlayer = chooseRandom(playersLength);
+    char formatedLog[STR_MAX];
+    sprintf(formatedLog, "%s starts first!", players[currentPlayer].name);
+    addLog(formatedLog);
 
+    while (true) {
       for (int c = 0; c < playersLength; c++) {
         title();
+        printLogs();
         printDashboard(players, currentPlayer, playersLength);
-
         currentPlayer = currentPlayer + 1 < playersLength ? currentPlayer + 1 : 0;
         system(PAUSE);
       }
-
+      clearLogs();
       return 0;
     }
   }
@@ -166,6 +177,44 @@ void printDashboard(player *players, int current, int lenght) {
       players[c].name,
       c % 2 ? '\n' : ' '
     );
+}
+
+void addLog(char *text) {
+  char **tmp = realloc(logs, logsLength + 1);
+  if (tmp == NULL)
+    return;
+  logs = tmp;
+
+  size_t length = strlen(text);
+  char *newLog = malloc(sizeof(char) * length + 1);
+  if (newLog == NULL)
+    return;
+
+  memcpy(newLog, text, length);
+  newLog[length] = 0;
+
+  logs[logsLength++] = newLog;
+}
+
+void printLogs(void) {
+  if (logs == NULL)
+    return;
+
+  for (size_t c = 0; c < logsLength; c++)
+    printf("%s\n", logs[c]);
+  puts("");
+}
+
+void clearLogs(void) {
+  if (logs == NULL)
+    return;
+
+  for (size_t c = 0; c < logsLength; c++)
+    free(logs[c]);
+
+  free(logs);
+  logs = NULL;
+  logsLength = 0;
 }
 
 int chooseRandom(int lenght) {
