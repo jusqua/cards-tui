@@ -99,6 +99,8 @@ void printLogs(void);
 void clearLogs(void);
 void clearDeck(player *);
 int buyUntilFindCardSuitable(int, player *);
+void game(void);
+void rules(void);
 
 char *input(const char *);
 int toint(const char *);
@@ -116,137 +118,218 @@ int playersLength = 0;
 
 int main(void) {
   atexit(teardownAllocations);
-
   fillCardStack();
+  bool loopRunning = true;
 
+  while (loopRunning) {
+    title();
+    puts("[P]lay the game");
+    puts("[S]ee the rules");
+    puts("[E]xit game");
+    puts("");
+
+    char *option = input("Which option? ");
+    if (option[0] == 0 || option[1] != 0)
+      continue;
+
+    switch (toupper(option[0])) {
+      case 'P':
+        do game();
+        while (toupper(input("Play again? [N/y]")[0]) == 'Y');
+        break;
+      case 'S':
+        rules();
+        break;
+      case 'E':
+        loopRunning = false;
+        break;
+    }
+  }
+
+  return 0;
+}
+
+void game(void) {
   do {
     title();
+    playersLength = toint(input("How many player? [2-8] "));
+  }
+  while(playersLength < 2 || playersLength > 8);
 
+  shuffleCardStack();
+
+  player players[playersLength];
+  for (int c = 0; c < playersLength; c++) {
     do {
       title();
-      playersLength = toint(input("How many player? [2-8] "));
+      printf("What's the %s player name? ", ordinal[c]);
+      players[c].name = input("");
     }
-    while(playersLength < 2 || playersLength > 8);
+    while (!*players[c].name);
+    players[c].lenght = 0;
+    players[c].deck = NULL;
 
-    shuffleCardStack();
+    for (int k = 0; k < CARD_START; k++)
+      buyCard(&players[c]);
+  }
 
-    player players[playersLength];
+  card currentCard;
+  int firstCardSuit;
+  int cardAdded;
+  int currentPlayer;
+  int cardValues[playersLength];
+
+  int playerCard = 0;
+  int currentRound = 0;
+  bool isGameOver = false;
+
+  while (!isGameOver) {
+    if (currentRound != 0) {
+      currentPlayer = calculateRoundWinner(cardValues);
+      sprintf(formatedLog, "'%s' wins this round!", players[currentPlayer].name);
+      addLog(formatedLog);
+
+      title();
+      printLogs();
+      centeredText("round over");
+      system(PAUSE);
+    }
+
+    firstCardSuit = -1;
+    currentRound++;
+    clearLogs();
+
+    sprintf(formatedLog, "Round %d begins", currentRound);
+    addLog(formatedLog);
+
+    sprintf(formatedLog, "%d cards remains in stack to buy", cardStack.lenght);
+    addLog(formatedLog);
+
+    if (currentRound == 1) {
+      currentPlayer = rand() % playersLength;
+      sprintf(formatedLog, "'%s' has chosen randonly to starts first", players[currentPlayer].name);
+    }
+    else {
+      sprintf(formatedLog, "'%s' starts first", players[currentPlayer].name);
+    }
+    addLog(formatedLog);
+
     for (int c = 0; c < playersLength; c++) {
-      do {
-        title();
-        printf("What's the %s player name? ", ordinal[c]);
-        players[c].name = input("");
-      }
-      while (!*players[c].name);
-      players[c].lenght = 0;
-      players[c].deck = NULL;
-
-      for (int k = 0; k < CARD_START; k++)
-        buyCard(&players[c]);
-    }
-
-    card currentCard;
-    int firstCardSuit;
-    int cardAdded;
-    int currentPlayer;
-    int cardValues[playersLength];
-
-    int playerCard = 0;
-    int currentRound = 0;
-    bool isGameOver = false;
-
-    while (!isGameOver) {
-      if (currentRound != 0) {
-        currentPlayer = calculateRoundWinner(cardValues);
-        sprintf(formatedLog, "'%s' wins this round!", players[currentPlayer].name);
-        addLog(formatedLog);
-
-        title();
-        printLogs();
-        centeredText("round over");
-        system(PAUSE);
-      }
-
-      firstCardSuit = -1;
-      currentRound++;
-      clearLogs();
-
-      sprintf(formatedLog, "Round %d begins", currentRound);
-      addLog(formatedLog);
-
-      sprintf(formatedLog, "%d cards remains in stack to buy", cardStack.lenght);
-      addLog(formatedLog);
-
-      if (currentRound == 1) {
-        currentPlayer = rand() % playersLength;
-        sprintf(formatedLog, "'%s' has chosen randonly to starts first", players[currentPlayer].name);
-      }
-      else {
-        sprintf(formatedLog, "'%s' starts first", players[currentPlayer].name);
-      }
-      addLog(formatedLog);
-
-      for (int c = 0; c < playersLength; c++) {
-        if (!hasCardSuitable(firstCardSuit, &players[currentPlayer])) {
-          if ((cardAdded = buyUntilFindCardSuitable(firstCardSuit, &players[currentPlayer])) == -1) {
-            isGameOver = true;
-
-            int winner = calculateEmptyStackWinner(players);
-            sprintf(formatedLog, "The stack is out, the game is over!");
-            addLog(formatedLog);
-            sprintf(formatedLog, "Calculating all cards from all players");
-            addLog(formatedLog);
-            sprintf(formatedLog, "'%s' wins by having the lowest deck", players[winner].name);
-            addLog(formatedLog);
-
-            break;
-          }
-          sprintf(formatedLog, "'%s' purchased %d new cards", players[currentPlayer].name, cardAdded);
-          addLog(formatedLog);
-        }
-
-        do {
-          title();
-          printLogs();
-          printDashboard(players, currentPlayer);
-          playerCard = toint(input("Which card? "));
-          playerCard--;
-        }
-        while (!isCardSuitable(playerCard, firstCardSuit, &players[currentPlayer]));
-
-        currentCard = discardCard(playerCard, &players[currentPlayer]);
-        if (c == 0)
-          firstCardSuit = currentCard.suit;
-        cardValues[currentPlayer] = currentCard.type;
-
-        sprintf(formatedLog, "'%s' throws '%s of %s'",
-          players[currentPlayer].name,
-          typeName[currentCard.type],
-          suitName[currentCard.suit]
-        );
-        addLog(formatedLog);
-
-        if (!players[currentPlayer].lenght) {
+      if (!hasCardSuitable(firstCardSuit, &players[currentPlayer])) {
+        if ((cardAdded = buyUntilFindCardSuitable(firstCardSuit, &players[currentPlayer])) == -1) {
           isGameOver = true;
 
-          sprintf(formatedLog, "'%s' is out of cards, we found our winner!", players[currentPlayer].name);
+          int winner = calculateEmptyStackWinner(players);
+          sprintf(formatedLog, "The stack is out, the game is over!");
+          addLog(formatedLog);
+          sprintf(formatedLog, "Calculating all cards from all players");
+          addLog(formatedLog);
+          sprintf(formatedLog, "'%s' wins by having the lowest deck", players[winner].name);
           addLog(formatedLog);
 
           break;
         }
-
-        currentPlayer = currentPlayer + 1 < playersLength ? currentPlayer + 1 : 0;
+        sprintf(formatedLog, "'%s' purchased %d new cards", players[currentPlayer].name, cardAdded);
+        addLog(formatedLog);
       }
-    }
-    title();
-    printLogs();
-    centeredText("game over");
-    clearLogs();
-    clearDeck(players);
-  }
-  while (toupper(input("Wanna play again? [N/y] ")[0]) == 'Y');
 
-  return 0;
+      do {
+        title();
+        printLogs();
+        printDashboard(players, currentPlayer);
+        playerCard = toint(input("Which card? "));
+        playerCard--;
+      }
+      while (!isCardSuitable(playerCard, firstCardSuit, &players[currentPlayer]));
+
+      currentCard = discardCard(playerCard, &players[currentPlayer]);
+      if (c == 0)
+        firstCardSuit = currentCard.suit;
+      cardValues[currentPlayer] = currentCard.type;
+
+      sprintf(formatedLog, "'%s' throws '%s of %s'",
+        players[currentPlayer].name,
+        typeName[currentCard.type],
+        suitName[currentCard.suit]
+      );
+      addLog(formatedLog);
+
+      if (!players[currentPlayer].lenght) {
+        isGameOver = true;
+
+        sprintf(formatedLog, "'%s' is out of cards, we found our winner!", players[currentPlayer].name);
+        addLog(formatedLog);
+
+        break;
+      }
+
+      currentPlayer = currentPlayer + 1 < playersLength ? currentPlayer + 1 : 0;
+    }
+  }
+  title();
+  printLogs();
+  centeredText("game over");
+  clearLogs();
+  clearDeck(players);
+}
+
+void rules(void) {
+  title();
+  centeredText("cards");
+  puts("* In the game, each card has a suit and a type diferent");
+  puts("* 4 suits and 13 types, add up to 52 card in a stack");
+  puts("  - The suits are: hearts, spades, diamonds and clubs");
+  puts("  - Every type has a value: numbers from 2 to 10, jack");
+  puts("      queen, king and ace, smallest to highest respectively");
+  puts("  - the ace type has power of 14 but value of 1");
+  puts("");
+
+  centeredText("how works");
+  puts("* The game allows 2 up to 8 players");
+  puts("* The purchase stack is shuffled");
+  puts("* Each player buy 4 cards");
+  puts("* Randonly a player is choosed to start");
+  puts("* The discard occurs circuling the player list");
+  puts("  - Ex: Player 8 starts, next is the player 1, next is 2, and so on");
+  puts("* The player who starts can choose the suit he wants");
+  puts("* The other players must discard only cards with the same suit");
+  puts("* Who discard the most valuable card wins");
+  puts("* In case of the player has no cards to discard, then");
+  puts("    will purchase from stack until find one suitable");
+  puts("* In case of the stack runs out, the winner of the game is");
+  puts("    the player who has the lowest valueble deck");
+  puts("  - Ex: ");
+  puts("    player 1 has: 2 + 4 + 12 (queen) + 1 (ace) = 19");
+  puts("    player 2 has: 10 + 9 + 13 (king) = 32");
+  puts("    player 1 wins");
+  puts("* The players whos discard his entire deck wins");
+  puts("");
+
+  centeredText("the interface");
+  printf("\n\n%s\n%s\n%s\n%s\n%s\n\n",
+    "                   |                         ",
+    ",---.,---.,---.,---|     ,---.,---.,-.-.,---.",
+    "|    ,---||    |   |     |   |,---|| | ||---'",
+    "`---'`---^`    `---'     `---|`---^` ' '`---'",
+    "                         `---'               "
+  );
+  centeredText("logs");
+  printf("%s\n%s\n%s\n\n",
+    "* Round 1 begins",
+    "* 44 cards remains in stack to buy",
+    "* '2' has chosen randonly to starts first <- Here is the round logs"
+  );
+  centeredText("players");
+  puts("[ ][04] 1               [*][04] 2 <- current player has a '*'\n");
+  centeredText("deck");
+  printf("%s\n%s\n\n",
+    "[01]  king of hearts   [02]     7 of hearts",
+    "[03]     6 of hearts   [04]     2 of spades"
+  );
+  puts("Which card? <- The player choose his card from deck");
+  puts("");
+
+  system(PAUSE);
 }
 
 void title(void) {
@@ -461,11 +544,14 @@ void fillCardStack() {
 }
 
 void shuffleCardStack() {
-  for (int i = 0; i < CARD_MAX; i++) {
-    int j = i + rand() / (RAND_MAX / (CARD_MAX - i) + 1);
-    card dummy = cardStack.cards[j];
-    cardStack.cards[j] = cardStack.cards[i];
-    cardStack.cards[i] = dummy;
+  int range = rand() % (rand() % 10);
+  for (int c = 0; c < range; c++) {
+    for (int i = 0; i < CARD_MAX; i++) {
+      int j = i + rand() / (RAND_MAX / (CARD_MAX - i) + 1);
+      card dummy = cardStack.cards[j];
+      cardStack.cards[j] = cardStack.cards[i];
+      cardStack.cards[i] = dummy;
+    }
   }
 }
 
