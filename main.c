@@ -219,12 +219,13 @@ void game(void) {
         if ((cardAdded = buyUntilFindCardSuitable(firstCardSuit, &players[currentPlayer])) == -1) {
           isGameOver = true;
 
-          int winner = calculateEmptyStackWinner(players);
           sprintf(formatedLog, "The stack is out, the game is over!");
           addLog(formatedLog);
           sprintf(formatedLog, "Calculating all cards from all players");
           addLog(formatedLog);
-          sprintf(formatedLog, "'%s' wins by having the lowest deck", players[winner].name);
+
+          int winner = calculateEmptyStackWinner(players);
+          sprintf(formatedLog, "'%s' wins the by having the lowest deck", players[winner].name);
           addLog(formatedLog);
 
           break;
@@ -415,6 +416,9 @@ int calculateEmptyStackWinner(player *players) {
       max = sum;
       winner = c;
     }
+
+    sprintf(formatedLog, "'%s' has %d cards add up %d points", players[c].name, players[c].lenght, sum);
+    addLog(formatedLog);
   }
   return winner;
 }
