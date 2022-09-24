@@ -99,7 +99,6 @@ void clearLogs(void);
 
 char *input(const char *);
 int toint(const char *);
-char *strstrip(char *);
 
 static char **allocatedStrings = NULL;
 static size_t allocatedStringsLength = 0;
@@ -131,7 +130,7 @@ int main(void) {
       do {
         title();
         printf("What's the %s player name? ", ordinal[c]);
-        players[c].name = strstrip(input(""));
+        players[c].name = input("");
       }
       while (!*players[c].name);
       players[c].lenght = 0;
@@ -452,23 +451,4 @@ int toint(const char *string) {
   }
 
   return INT_MAX;
-}
-
-char *strstrip(char *string) {
-  if (string == NULL)
-    return NULL;
-
-  size_t size = strlen(string);
-  if (!size)
-    return string;
-
-  char *end = string + size - 1;
-  while (end >= string && isspace((unsigned char) *end))
-    end--;
-  *(end + 1) = '\0';
-
-  while (*string && isspace((unsigned char) *string))
-    string++;
-
-  return string;
 }
