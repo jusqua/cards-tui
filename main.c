@@ -551,14 +551,11 @@ void fillCardStack() {
 }
 
 void shuffleCardStack() {
-  int range = rand() % (rand() % 10);
-  for (int c = 0; c < range; c++) {
-    for (int i = 0; i < CARD_MAX; i++) {
-      int j = i + rand() / (RAND_MAX / (CARD_MAX - i) + 1);
-      card dummy = cardStack.cards[j];
-      cardStack.cards[j] = cardStack.cards[i];
-      cardStack.cards[i] = dummy;
-    }
+  for (int i = 0; i < CARD_MAX; i++) {
+    int j = i + rand() / (RAND_MAX / (CARD_MAX - i) + 1);
+    card dummy = cardStack.cards[j];
+    cardStack.cards[j] = cardStack.cards[i];
+    cardStack.cards[i] = dummy;
   }
 }
 
