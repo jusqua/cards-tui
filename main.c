@@ -85,17 +85,20 @@ const char *suitName[] = {
 void title(void);
 void centeredText(char *);
 void printDashboard(player *, int);
-bool isCardSuitable(int, enum SUITS, player *);
+bool hasCardSuitable(int, player *);
+bool isCardSuitable(int, int, player *);
 card discardCard(int, player *);
-int chooseRandom();
-card cardConstructor(enum SUITS, enum TYPES);
+card cardConstructor(int, enum TYPES);
 void fillCardStack();
 void shuffleCardStack();
 bool buyCard(player *);
+int calculateEmptyStackWinner(player *);
 int calculateRoundWinner(int *);
-
 void addLog(char *);
+void printLogs(void);
 void clearLogs(void);
+void clearDeck(player *);
+int buyUntilFindCardSuitable(int, player *);
 
 char *input(const char *);
 int toint(const char *);
@@ -104,17 +107,19 @@ static char **allocatedStrings = NULL;
 static size_t allocatedStringsLength = 0;
 static void teardownAllocations(void);
 
+static char formatedLog[STR_MAX] = "";
+static char **logs = NULL;
+static size_t logsLength = 0; 
+
 stack cardStack = {0};
-char **logs = NULL;
 int playersLength = 0;
-size_t logsLength = 0; 
 
 int main(void) {
   atexit(teardownAllocations);
 
   fillCardStack();
 
-  while (true) {
+  do {
     title();
 
     do {
@@ -140,40 +145,106 @@ int main(void) {
         buyCard(&players[c]);
     }
 
-    int currentPlayer = chooseRandom(playersLength);
-    char formatedLog[STR_MAX] = "";
-    int cardValues[playersLength];
     card currentCard;
+    int firstCardSuit;
+    int cardAdded;
+    int currentPlayer;
+    int cardValues[playersLength];
+
     int playerCard = 0;
-    int firstCardSuit = -1;
+    int currentRound = 0;
+    bool isGameOver = false;
 
-    sprintf(formatedLog, "'%s' starts first!", players[currentPlayer].name);
-    addLog(formatedLog);
+    while (!isGameOver) {
+      if (currentRound != 0) {
+        currentPlayer = calculateRoundWinner(cardValues);
+        sprintf(formatedLog, "'%s' wins this round!", players[currentPlayer].name);
+        addLog(formatedLog);
 
-    while (true) {
+        title();
+        printLogs();
+        centeredText("round over");
+        system(PAUSE);
+      }
+
+      firstCardSuit = -1;
+      currentRound++;
+      clearLogs();
+
+      sprintf(formatedLog, "Round %d begins", currentRound);
+      addLog(formatedLog);
+
+      sprintf(formatedLog, "%d cards remains in stack to buy", cardStack.lenght);
+      addLog(formatedLog);
+
+      if (currentRound == 1) {
+        currentPlayer = rand() % playersLength;
+        sprintf(formatedLog, "'%s' has chosen randonly to starts first", players[currentPlayer].name);
+      }
+      else {
+        sprintf(formatedLog, "'%s' starts first", players[currentPlayer].name);
+      }
+      addLog(formatedLog);
+
       for (int c = 0; c < playersLength; c++) {
+        if (!hasCardSuitable(firstCardSuit, &players[currentPlayer])) {
+          if ((cardAdded = buyUntilFindCardSuitable(firstCardSuit, &players[currentPlayer])) == -1) {
+            isGameOver = true;
+
+            int winner = calculateEmptyStackWinner(players);
+            sprintf(formatedLog, "The stack is out, the game is over!");
+            addLog(formatedLog);
+            sprintf(formatedLog, "Calculating all cards from all players");
+            addLog(formatedLog);
+            sprintf(formatedLog, "'%s' wins by having the lowest deck", players[winner].name);
+            addLog(formatedLog);
+
+            break;
+          }
+          sprintf(formatedLog, "'%s' purchased %d new cards", players[currentPlayer].name, cardAdded);
+          addLog(formatedLog);
+        }
+
         do {
           title();
+          printLogs();
           printDashboard(players, currentPlayer);
           playerCard = toint(input("Which card? "));
+          playerCard--;
         }
-        while (isCardSuitable(playerCard, firstCardSuit, &players[currentPlayer]));
+        while (!isCardSuitable(playerCard, firstCardSuit, &players[currentPlayer]));
 
         currentCard = discardCard(playerCard, &players[currentPlayer]);
         if (c == 0)
           firstCardSuit = currentCard.suit;
         cardValues[currentPlayer] = currentCard.type;
 
+        sprintf(formatedLog, "'%s' throws '%s of %s'",
+          players[currentPlayer].name,
+          typeName[currentCard.type],
+          suitName[currentCard.suit]
+        );
+        addLog(formatedLog);
+
+        if (!players[currentPlayer].lenght) {
+          isGameOver = true;
+
+          sprintf(formatedLog, "'%s' is out of cards, we found our winner!", players[currentPlayer].name);
+          addLog(formatedLog);
+
+          break;
+        }
+
         currentPlayer = currentPlayer + 1 < playersLength ? currentPlayer + 1 : 0;
       }
-      firstCardSuit = -1;
-      clearLogs();
-
-      currentPlayer = calculateRoundWinner(cardValues);
-
-      return 0;
     }
+    title();
+    printLogs();
+    centeredText("game over");
+    clearLogs();
+    clearDeck(players);
   }
+  while (toupper(input("Wanna play again? [N/y] ")[0]) == 'Y');
 
   return 0;
 }
@@ -216,7 +287,6 @@ void printDashboard(player *players, int current) {
       players[c].name,
       c % 2 ? '\n' : ' '
     );
-
   if (playersLength % 2)
     puts("");
   puts("");
@@ -233,13 +303,37 @@ void printDashboard(player *players, int current) {
   if (players[current].lenght % 2)
     puts("");
   puts("");
+}
 
-  centeredText("logs");
-  if (logs == NULL)
-    return;
-  for (size_t c = 0; c < logsLength; c++)
-    printf("* %-43s\n", logs[c]);
-  puts("");
+int buyUntilFindCardSuitable(int suit, player *current) {
+  int numOfCardsAdded = 0;
+
+  do {
+    if (!buyCard(current))
+      return -1;
+    numOfCardsAdded++;
+  }
+  while (current->deck->prev->suit != suit);
+
+  return numOfCardsAdded;
+}
+
+int calculateEmptyStackWinner(player *players) {
+  int sum, winner, max = 0;
+  card *tmp;
+  for (int c = 0; c < playersLength; c++) {
+    sum = 0;
+    tmp = players[c].deck;
+
+    for (int k = 0; k < players[c].lenght; k++, tmp = tmp->next)
+      sum += tmp->suit == ACE ? 1 : tmp->suit;
+
+    if (sum > max) {
+      max = sum;
+      winner = c;
+    }
+  }
+  return winner;
 }
 
 int calculateRoundWinner(int *values) {
@@ -255,8 +349,22 @@ int calculateRoundWinner(int *values) {
   return winner;
 }
 
-bool isCardSuitable(int playerCard, enum SUITS suit, player *current) {
-  if (playerCard < 1 || playerCard > current->lenght) 
+bool hasCardSuitable(int suit, player *current) {
+  if (suit == -1)
+    return true;
+
+  card *tmp = current->deck;
+  for (int c = 0; c < current->lenght; c++) {
+    tmp = tmp->next;
+    if (tmp->suit == suit) 
+      return true;
+  }
+
+  return false;
+}
+
+bool isCardSuitable(int playerCard, int suit, player *current) {
+  if (playerCard < 0 || playerCard >= current->lenght) 
     return false;
 
   if (suit == -1)
@@ -282,6 +390,7 @@ card discardCard(int playerCard, player *current) {
   currentCard.suit = tmp->suit;
   currentCard.type = tmp->type;
 
+  current->lenght--;
   tmp->prev->next = tmp->next;
   tmp->next->prev = tmp->prev;
   free(tmp);
@@ -289,14 +398,22 @@ card discardCard(int playerCard, player *current) {
   return currentCard;
 }
 
+void clearDeck(player *players) {
+  for (int c = 0; c < playersLength; c++) {
+    while (players[c].lenght != 0)
+      discardCard(0, &players[c]);
+    players[c].deck = NULL;
+  }
+}
+
 void addLog(char *text) {
-  char **tmp = realloc(logs, logsLength + 1);
-  if (tmp == NULL)
+  char **tmp = (char **) realloc(logs, sizeof (char *) * (logsLength + 1));
+  if (tmp == NULL) 
     return;
   logs = tmp;
 
   size_t length = strlen(text);
-  char *newLog = malloc(sizeof(char) * length + 1);
+  char *newLog = (char *) malloc(sizeof(char) * (length + 1));
   if (newLog == NULL)
     return;
 
@@ -306,23 +423,29 @@ void addLog(char *text) {
   logs[logsLength++] = newLog;
 }
 
+void printLogs(void) {
+  centeredText("logs");
+  if (logs == NULL)
+    return;
+  for (size_t c = 0; c < logsLength; c++) 
+    printf("* %-43s\n", logs[c]);
+  puts("");
+}
+
 void clearLogs(void) {
   if (logs == NULL)
     return;
 
   for (size_t c = 0; c < logsLength; c++)
     free(logs[c]);
-
   free(logs);
+
   logs = NULL;
   logsLength = 0;
 }
 
-int chooseRandom() {
-  return rand() % playersLength;
-}
 
-card cardConstructor(enum SUITS suit, enum TYPES type) {
+card cardConstructor(int suit, enum TYPES type) {
   card newCard;
   newCard.suit = suit;
   newCard.type = type;
