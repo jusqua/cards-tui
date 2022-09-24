@@ -473,10 +473,13 @@ card discardCard(int playerCard, player *current) {
   currentCard.suit = tmp->suit;
   currentCard.type = tmp->type;
 
-  current->lenght--;
+  if (tmp == current->deck)
+    current->deck = current->deck->next;
+
   tmp->prev->next = tmp->next;
   tmp->next->prev = tmp->prev;
   free(tmp);
+  current->lenght--;
 
   return currentCard;
 }
