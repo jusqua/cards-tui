@@ -403,17 +403,17 @@ int buyUntilFindCardSuitable(int suit, player *current) {
 }
 
 int calculateEmptyStackWinner(player *players) {
-  int sum, winner, max = 0;
+  int sum, winner, min = INT_MAX;
   card *tmp;
   for (int c = 0; c < playersLength; c++) {
     sum = 0;
     tmp = players[c].deck;
 
     for (int k = 0; k < players[c].lenght; k++, tmp = tmp->next)
-      sum += tmp->suit == ACE ? 1 : tmp->suit;
+      sum += tmp->type == ACE ? 1 : tmp->type;
 
-    if (sum > max) {
-      max = sum;
+    if (sum < min) {
+      min = sum;
       winner = c;
     }
 
