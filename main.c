@@ -118,7 +118,6 @@ int playersLength = 0;
 
 int main(void) {
   atexit(teardownAllocations);
-  fillCardStack();
   bool loopRunning = true;
 
   while (loopRunning) {
@@ -156,6 +155,7 @@ void game(void) {
   }
   while(playersLength < 2 || playersLength > 8);
 
+  fillCardStack();
   shuffleCardStack();
 
   player players[playersLength];
