@@ -1,0 +1,8 @@
+modules = ["c-clang14"]
+run = "cc -o main main.c && ./main"
+
+[nix]
+channel = "stable-23_11"
+
+[deployment]
+run = ["sh", "-c", "cc -o main main.c && ./main"]
